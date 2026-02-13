@@ -87,7 +87,7 @@ if st.session_state['user']:
                             tfile = tempfile.NamedTemporaryFile(delete=False)
                             tfile.write(video_file.read())
                             
-                            model = genai.GenerativeModel('models/gemini-1.5-flash')
+                            model = genai.GenerativeModel('gemini-1.5-flash-latest')
                             video_part = genai.upload_file(path=tfile.name, mime_type="video/mp4")
                             
                             while video_part.state.name == "PROCESSING":
@@ -116,6 +116,7 @@ if st.session_state['user']:
 else:
 
     st.warning("အသုံးမပြုခင် Sidebar မှတစ်ဆင့် Login ဝင်ပေးပါ။")
+
 
 
 
