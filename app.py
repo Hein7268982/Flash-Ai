@@ -32,7 +32,7 @@ if 'user_credits' not in st.session_state: st.session_state['user_credits'] = 0
 
 # --- DATABASE FUNCTIONS ---
 def get_user_data(email):
-    res = supabase.table("profiles").select("*").eq("email", email).execute()
+    res = supabase.table("profile").select("*").eq("email", email).execute()
     return res.data[0] if res.data else None
 
 def update_credits(email, new_amount):
@@ -114,4 +114,5 @@ if st.session_state['user']:
         else:
             st.info("Analysis လုပ်ပြီးပါက ရလဒ်များကို ဤနေရာတွင် ပြသပါမည်။")
 else:
+
     st.warning("အသုံးမပြုခင် Sidebar မှတစ်ဆင့် Login ဝင်ပေးပါ။")
