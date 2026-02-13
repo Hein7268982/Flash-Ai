@@ -92,7 +92,7 @@ if st.session_state['user']:
                             
                             while video_part.state.name == "PROCESSING":
                                 time.sleep(2)
-                                video_part = genai.get_file(video_part.name, mime_type="video/mp4")
+                                video_part = genai.get_file(video_part.name)
                             
                             prompt = "ဒီဗီဒီယိုကို မြန်မာလို အသေးစိတ်အကျဉ်းချုပ်ပေးပါ။ အဓိကအချက်တွေကို Timestamp (အချိန်) နဲ့တကွ ဖော်ပြပေးပါ။"
                             response = model.generate_content([prompt, video_part])
@@ -116,6 +116,7 @@ if st.session_state['user']:
 else:
 
     st.warning("အသုံးမပြုခင် Sidebar မှတစ်ဆင့် Login ဝင်ပေးပါ။")
+
 
 
 
