@@ -56,7 +56,7 @@ with st.sidebar:
                 st.session_state['user_credits'] = user_data['credits']
                 st.rerun()
             else:
-                supabase.table("profiles").insert({"email": email, "credits": 0}).execute()
+                supabase.table("profile").insert({"email": email, "credits": 0}).execute()
                 st.success("အကောင့်ဖွင့်ပြီးပါပြီ။ ပြန်ဝင်ပေးပါ။")
     else:
         st.write(f"Logged in: **{st.session_state['user']}**")
@@ -116,3 +116,4 @@ if st.session_state['user']:
 else:
 
     st.warning("အသုံးမပြုခင် Sidebar မှတစ်ဆင့် Login ဝင်ပေးပါ။")
+
