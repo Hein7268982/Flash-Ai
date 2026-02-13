@@ -1,171 +1,157 @@
 import streamlit as st
 import google.generativeai as genai
 from supabase import create_client
+import streamlit_authenticator as stauth
 import tempfile
 import os
 import time
 import yt_dlp
+from datetime import datetime
 
-# -------------------- CONFIG --------------------
+# -------------------- PAGE CONFIG --------------------
 
 st.set_page_config(
-    page_title="Flash AI Intelligence",
+    page_title="Flash AI",
     page_icon="⚡",
     layout="wide"
 )
 
-# Load Secrets Safely
+# -------------------- LOAD SECRETS --------------------
+
 try:
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+    COOKIE_KEY = st.secrets["COOKIE_KEY"]
 except:
-    st.error("❌ Secrets not found. Configure Streamlit secrets.")
+    st.error("Secrets missing!")
     st.stop()
 
-# Setup Clients
 genai.configure(api_key=GEMINI_API_KEY)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# -------------------- UI STYLE --------------------
+# -------------------- TEAM ALPHA PREMIUM UI --------------------
 
 st.markdown("""
 <style>
-.stApp { background-color: #0E1117; }
 
-.stTextInput input {
-    background-color: #262730 !important;
-    color: white !important;
-    border-radius: 10px;
-    border: 1px solid #4A4A4A;
+.stApp {
+    background: linear-gradient(135deg, #0E1117 0%, #111827 100%);
+}
+
+h1, h2, h3 {
+    color: #E6EDF3;
 }
 
 .stButton button {
-    width: 100%;
     background: linear-gradient(90deg, #FF4B4B 0%, #FF914D 100%);
     color: white;
-    border: none;
-    padding: 0.6rem 1rem;
     border-radius: 12px;
+    border: none;
     font-weight: bold;
-    transition: 0.2s;
+    transition: 0.3s;
 }
 .stButton button:hover {
-    transform: scale(1.02);
+    transform: scale(1.03);
     box-shadow: 0 4px 15px rgba(255,75,75,0.4);
+}
+
+.stTextInput input, .stSelectbox div {
+    background-color: #262730 !important;
+    color: white !important;
+    border-radius: 8px;
 }
 
 section[data-testid="stSidebar"] {
     background-color: #161B22;
-    border-right: 1px solid #30363D;
 }
 
 .result-box {
-    background-color: #161B22;
+    background: #161B22;
     padding: 20px;
-    border-radius: 12px;
+    border-radius: 15px;
     border: 1px solid #30363D;
+    box-shadow: 0 0 20px rgba(255,75,75,0.1);
 }
+
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- SESSION --------------------
+# -------------------- AUTH SYSTEM (Persistent Login) --------------------
 
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "user_email" not in st.session_state:
-    st.session_state.user_email = None
-if "user_credits" not in st.session_state:
-    st.session_state.user_credits = 0
-
-# -------------------- FUNCTIONS --------------------
-
-def login_user(email):
-    try:
-        res = supabase.table("profile").select("*").eq("email", email).execute()
-        if res.data:
-            st.session_state.logged_in = True
-            st.session_state.user_email = email
-            st.session_state.user_credits = res.data[0]["credits"]
-            st.success("✅ Login Successful")
-            time.sleep(1)
-            st.rerun()
-        else:
-            st.error("⛔ Account not found")
-    except Exception as e:
-        st.error(f"Login Error: {e}")
-
-def download_youtube(url):
-    try:
-        ydl_opts = {
-            "format": "best[ext=mp4]/best",
-            "outtmpl": "%(id)s.%(ext)s",
-            "quiet": True
+def fetch_users():
+    res = supabase.table("profile").select("*").execute()
+    users = {}
+    for u in res.data:
+        users[u["email"]] = {
+            "name": u["email"],
+            "password": u["password"]  # must store hashed password
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            return ydl.prepare_filename(info)
-    except Exception as e:
-        raise Exception(f"YouTube Download Failed: {e}")
+    return users
 
-def analyze_video(video_path):
-    try:
-        file = genai.upload_file(path=video_path)
+credentials = {"usernames": fetch_users()}
 
-        while file.state.name == "PROCESSING":
-            time.sleep(2)
-            file = genai.get_file(file.name)
+authenticator = stauth.Authenticate(
+    credentials,
+    "flash_ai_cookie",
+    COOKIE_KEY,
+    cookie_expiry_days=7
+)
 
-        if file.state.name == "FAILED":
-            raise Exception("AI Processing Failed")
+name, authentication_status, username = authenticator.login("Login", "main")
 
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(
-            [file, "ဒီဗီဒီယိုကို အသေးစိတ် ခွဲခြမ်းစိတ်ဖြာပြီး ရှင်းပြပါ"]
-        )
+if authentication_status is False:
+    st.error("Invalid Credentials")
+elif authentication_status is None:
+    st.warning("Enter Login Details")
 
-        genai.delete_file(file.name)
-        return response.text
+# -------------------- MAIN DASHBOARD --------------------
 
-    except Exception as e:
-        raise Exception(f"Analysis Error: {e}")
+if authentication_status:
 
-# -------------------- LOGIN SCREEN --------------------
-
-if not st.session_state.logged_in:
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.title("⚡ TEAM ALPHA ACCESS")
-        email = st.text_input("Enter Email")
-        if st.button("AUTHENTICATE"):
-            if email:
-                login_user(email)
-            else:
-                st.warning("Enter email first")
-
-# -------------------- DASHBOARD --------------------
-
-else:
+    user_data = supabase.table("profile").select("*").eq("email", username).execute()
+    credits = user_data.data[0]["credits"]
 
     with st.sidebar:
-        st.header("👤 AGENT PROFILE")
-        st.info(st.session_state.user_email)
-        st.metric("AVAILABLE CREDITS", st.session_state.user_credits)
-        if st.button("LOGOUT"):
-            for key in st.session_state.keys():
-                del st.session_state[key]
-            st.rerun()
+        st.title("⚡ Flash AI")
+        st.metric("Available Credits", credits)
+        authenticator.logout("Logout")
 
-    st.title("🎬 TACTICAL VIDEO INTEL")
-    st.write("Upload video file or paste YouTube link.")
+    st.title("🎬 FLASH AI INTELLIGENCE SYSTEM")
 
-    tab1, tab2 = st.tabs(["📤 Upload", "🔗 YouTube"])
+    # -------------------- OPTIONS PANEL --------------------
+
+    colA, colB, colC = st.columns(3)
+
+    with colA:
+        analysis_mode = st.selectbox(
+            "Analysis Mode",
+            ["Detailed Report", "Short Summary", "Threat Detection", "Object Detection"]
+        )
+
+    with colB:
+        language_choice = st.selectbox(
+            "Response Language",
+            ["Burmese", "English"]
+        )
+
+    with colC:
+        creativity = st.slider("AI Creativity", 0.0, 1.0, 0.5)
+
+    custom_prompt = st.text_area(
+        "Custom Instruction (Optional)",
+        placeholder="Add your own instruction..."
+    )
+
+    st.divider()
+
+    tab1, tab2 = st.tabs(["📤 Upload Video", "🔗 YouTube Link"])
 
     video_path = None
 
     # -------- Upload --------
     with tab1:
-        file = st.file_uploader("Upload Video", type=["mp4","mov","avi"])
+        file = st.file_uploader("Upload Video File", type=["mp4","mov","avi"])
         if file:
             st.video(file)
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
@@ -174,41 +160,63 @@ else:
 
     # -------- YouTube --------
     with tab2:
-        url = st.text_input("YouTube URL")
+        url = st.text_input("Paste YouTube URL")
         if url and ("youtube.com" in url or "youtu.be" in url):
             st.video(url)
-            if st.button("Download Video"):
-                with st.spinner("📥 Downloading..."):
+            if st.button("Download YouTube Video"):
+                with st.spinner("Downloading Video..."):
                     try:
-                        video_path = download_youtube(url)
-                        st.success("Downloaded Successfully")
+                        ydl_opts = {
+                            "format": "best[ext=mp4]/best",
+                            "outtmpl": "%(id)s.%(ext)s",
+                            "quiet": True
+                        }
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                            info = ydl.extract_info(url, download=True)
+                            video_path = ydl.prepare_filename(info)
+                        st.success("Download Complete")
                     except Exception as e:
                         st.error(e)
 
-    # -------- Analyze --------
+    # -------- ANALYSIS --------
     if video_path:
         st.divider()
-        if st.button("🚀 INITIATE ANALYSIS (-10 Credits)"):
-            if st.session_state.user_credits < 10:
-                st.error("⛔ Not enough credits")
+        if st.button("🚀 Start AI Analysis (-10 Credits)"):
+            if credits < 10:
+                st.error("Insufficient Credits")
             else:
-                with st.spinner("🤖 AI is analyzing..."):
+                with st.spinner("AI Processing..."):
                     try:
-                        result = analyze_video(video_path)
+                        file = genai.upload_file(path=video_path)
 
-                        # Deduct Credits
-                        new_credit = st.session_state.user_credits - 10
+                        while file.state.name == "PROCESSING":
+                            time.sleep(2)
+                            file = genai.get_file(file.name)
+
+                        model = genai.GenerativeModel("gemini-1.5-flash")
+
+                        prompt = f"""
+                        Mode: {analysis_mode}
+                        Language: {language_choice}
+                        {custom_prompt}
+                        """
+
+                        response = model.generate_content(
+                            [file, prompt],
+                            generation_config={"temperature": creativity}
+                        )
+
+                        genai.delete_file(file.name)
+
+                        # Deduct credits
+                        new_credit = credits - 10
                         supabase.table("profile").update(
                             {"credits": new_credit}
-                        ).eq(
-                            "email", st.session_state.user_email
-                        ).execute()
+                        ).eq("email", username).execute()
 
-                        st.session_state.user_credits = new_credit
-
-                        st.success("✅ Mission Complete")
+                        st.success("Analysis Complete")
                         st.markdown(
-                            f'<div class="result-box">{result}</div>',
+                            f'<div class="result-box">{response.text}</div>',
                             unsafe_allow_html=True
                         )
 
