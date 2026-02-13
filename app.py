@@ -11,7 +11,7 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
 # Setup Clients
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-genai.configure(api_key=GEMINI_API_KEY)
+genai.configure(api_key=GEMINI_API_KEY, transport='rest')
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Flash Recap | AI Intelligence", page_icon="⚡", layout="wide")
@@ -87,7 +87,7 @@ if st.session_state['user']:
                             tfile = tempfile.NamedTemporaryFile(delete=False)
                             tfile.write(video_file.read())
                             
-                            model = genai.GenerativeModel('gemini-1.5-flash')
+                            model = genai.GenerativeModel(model_name='models/gemini-1.5-flash')
                             video_part = genai.upload_file(path=tfile.name, mime_type="video/mp4")
                             
                             while video_part.state.name == "PROCESSING":
@@ -116,6 +116,7 @@ if st.session_state['user']:
 else:
 
     st.warning("အသုံးမပြုခင် Sidebar မှတစ်ဆင့် Login ဝင်ပေးပါ။")
+
 
 
 
